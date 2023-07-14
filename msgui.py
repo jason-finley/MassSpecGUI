@@ -2,6 +2,7 @@ from graphics import *
 from time import sleep
 import numpy as np
 from PIL import Image, ImageTk
+import json
 
 
 def window():
@@ -87,6 +88,53 @@ def whichimg(t): # determine selected image
     elif 604 < t < 856:
         return 3
     
+def secondclickloop(win, grid, box, column_num, row_num, matrix, image_size, xi, yi, sel):
+    click = False # wait for second click loop
+    while not clicked(click, grid):
+        click = win.checkMouse()
+
+        xf = win.winfo_pointerx() - win.winfo_rootx() # determine current cursor posistion
+        yf = win.winfo_pointery() - win.winfo_rooty()
+
+        xf = adjustfpoint(column_num, xf) # keep point inside image
+        yf = adjustfpoint(row_num, yf)
+
+        if sel == 0:
+            rxi, rxf = xi - 35, xf - 35
+            ryi, ryf = yi - 35, yf - 35
+        elif sel == 1:
+            rxi, rxf = xi - 320, xf - 320
+            ryi, ryf = yi - 35, yf - 35
+        elif sel == 2:
+            rxi, rxf = xi - 605, xf - 605
+            ryi, ryf = yi - 35, yf - 35
+        elif sel == 3:
+            rxi, rxf = xi - 35, xf - 35
+            ryi, ryf = yi - 320, yf - 320
+        elif sel == 4:
+            rxi, rxf = xi - 320, xf - 320
+            ryi, ryf = yi - 320, yf - 320
+        elif sel == 5:
+            rxi, rxf = xi - 605, xf - 605
+            ryi, ryf = yi - 320, yf - 320
+
+        sleep(0.03) # draw current rectangle
+        box.undraw()
+        box = Rectangle(Point(xi, yi), Point(xf, yf))
+        box.setOutline("Light Blue")
+        box.draw(win)
+    
+    box.setOutline("Blue") # indicate final click
+
+    if xi > xf: # make initial point lower than final point
+        xi, xf = xf, xi
+    if yi > yf:
+        yi, yf = yf, xi
+
+    rpoints = [rxi, ryi, rxf, ryf] # relative points on image
+
+    return getAverage(matrix, row_num, column_num, rxi, ryi, rxf, ryf, image_size), box, rpoints
+    
         
 def adjustfpoint(num, t): # adjust final point onto image
     if num == 1:
@@ -112,31 +160,7 @@ def adjustfpoint(num, t): # adjust final point onto image
             return t
 
 
-def getAverage(tensor, row_num, column_num, xi, yi, xf, yf, image_size):
-    # return relative point on image
-    if row_num == 1:
-        if column_num == 1:
-            matrix = tensor[0]
-            rxi, rxf = xi - 35, xf - 35
-        elif column_num == 2:
-            matrix = tensor[1]
-            rxi, rxf = xi - 320, xf - 320
-        elif column_num == 3:
-            matrix = tensor[2]
-            rxi, rxf = xi - 605, xf - 605
-        ryi, ryf = yi - 35, yf - 35
-    elif row_num == 2:
-        if column_num == 1:
-            matrix = tensor[3]
-            rxi, rxf = xi - 35, xf - 35
-        elif column_num == 2:
-            matrix = tensor[4]
-            rxi, rxf = xi - 320, xf - 320
-        elif column_num == 3:
-            matrix = tensor[5]
-            rxi, rxf = xi - 605, xf - 605
-        ryi, ryf = yi - 320, yf - 320
-    
+def getAverage(matrix, row_num, column_num, rxi, ryi, rxf, ryf, image_size):
     y_scale, x_scale = image_size[1] / len(matrix), image_size[0] / len(matrix[0]) # determine scale of images
     y1, y2, x1, x2 = int(ryi / y_scale), int(ryf / y_scale), int(rxi / x_scale), int(rxf / x_scale) # return submatrix indexes
 
@@ -157,8 +181,13 @@ def main():
     draw_imgs(image_size, padding_size, win, tensor)
 
     # initial values
-    box = Rectangle(Point(0, 0), Point(0, 0))
-    xi, yi, xf, yf = None, None, None, None
+    points = []
+    boxes = []
+    for i in range(len(tensor)):
+        points = points + [[0, 0, 0, 0]]
+        boxes = boxes + [Rectangle(Point(points[int(i)][0], points[int(i)][1]), Point(points[int(i)][2], points[int(i)][3]))]
+
+    averages = [0, 0, 0, 0, 0, 0]
     
     # main loop
     while True:
@@ -167,41 +196,48 @@ def main():
         if clicked(click, grid): # check if click was in clickable area
             # make sure initial click is on an image
             xi, yi = click.getX(), click.getY()
-            print(xi, yi)
             xi = adjustipoint(xi)
             yi = adjustipoint(yi)
 
             column_num = whichimg(xi)
             row_num = whichimg(yi)
 
-            click = False # wait for second click loop
-            while not clicked(click, grid):
-                click = win.checkMouse()
+            # determine selected box
+            if row_num == 1:
+                if column_num == 1:
+                    sel = 0
+                elif column_num == 2:
+                    sel = 1
+                elif column_num == 3:
+                    sel = 2
+            elif row_num == 2:
+                if column_num == 1:
+                    sel = 3
+                elif column_num == 2:
+                    sel = 4
+                elif column_num == 3:
+                    sel = 5
 
-                xf = win.winfo_pointerx() - win.winfo_rootx() # determine current cursor posistion
-                yf = win.winfo_pointery() - win.winfo_rooty()
+            matrix = tensor[sel]
+            box = boxes[sel]
+            selected_average, boxes[sel], box_points = secondclickloop(win, grid, box, column_num, row_num, matrix, image_size, xi, yi, sel)
+            averages[sel] = selected_average
+            points[sel] = box_points
 
-                xf = adjustfpoint(column_num, xf) # keep point inside image
-                yf = adjustfpoint(row_num, yf)
+        if clicked(click, Submit): # save to json file
+            out_file = open(input_box.getText() + ".json", "w")
+            data = {}
+        
+            for i in range(len(averages)):
+                data[str("BOX" + str(i))] = {
+                    "Average": averages[int(i)],
+                    "Points (x1,y1,x2,y2)": points[int(i)] 
+                }
 
-                sleep(0.03) # draw current rectangle
-                box.undraw()
-                box = Rectangle(Point(xi, yi), Point(xf, yf))
-                box.setOutline("Light Blue")
-                box.draw(win)
+            json.dump(data, out_file)
 
-            
-            box.setOutline("Blue") # indicate final click
-
-            if xi > xf: # make initial point lower than final point
-                xi, xf = xf, xi
-            if yi > yf:
-                yi, yf = yf, xi
-
-            print(getAverage(tensor, row_num, column_num, xi, yi, xf, yf, image_size))
-
-        if clicked(click, Submit): # save file
             print(input_box.getText())
+            print(data)
 
 
 main()
