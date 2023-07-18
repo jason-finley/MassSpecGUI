@@ -3,6 +3,7 @@ from time import sleep
 import numpy as np
 from PIL import Image, ImageTk
 import json
+import tkinter as tk
 
 
 def window():
@@ -11,21 +12,30 @@ def window():
 
     grid = Rectangle(Point(0, 0), Point(900, 587)) # clickable area
 
-    input_box = Entry(Point(300, 657.5), 28) # input box
+    input_box = Entry(Point(445, 640), 28) # input box
     input_box.setStyle("bold")
     input_box.setSize(20)
     input_box.draw(win)
 
-    Submit = Rectangle(Point(645, 620), Point(815, 695)) # Submit button
-    Submit.setFill("green")
-    Submit.draw(win)
-    sub_label = Text(Point(730, 657.5), "Submit")
-    sub_label.setStyle("bold")
-    sub_label.setSize(24)
-    sub_label.setFill("black")
-    sub_label.draw(win)
+    Save = Rectangle(Point(572.5, 680), Point(742.5, 755)) # Save button
+    Save.setFill("green")
+    Save.draw(win)
+    save_label = Text(Point(657.5, 717.5), "Save")
+    save_label.setStyle("bold")
+    save_label.setSize(24)
+    save_label.setFill("black")
+    save_label.draw(win)
 
-    return win, grid, input_box, Submit
+    Load = Rectangle(Point(167.5, 680), Point(337.5, 755)) # Save button
+    Load.setFill("light Blue")
+    Load.draw(win)
+    load_label = Text(Point(252.5, 717.5), "Load")
+    load_label.setStyle("bold")
+    load_label.setSize(24)
+    load_label.setFill("black")
+    load_label.draw(win)
+
+    return win, grid, input_box, Save, Load
 
 def clicked(click, rect): # boolean if click was inside rectangle
     if not click:
@@ -52,15 +62,33 @@ def draw_imgs(image_size, padding_size, win, tensor): # draw tensor images onto 
         img = ImageTk.PhotoImage(resized_matrix)
         imgs = imgs + [img]
 
-    i = padding_size + image_size[0]/2
-    j = padding_size + image_size[1]/2
+
+    abs_x = padding_size + image_size[0]/2
+    abs_y = padding_size + image_size[1]/2
+    radio_sel = []
+
     for img in imgs: # draw imgs from imgs list
-        img = TImage(Point(i, j), img)
+        img = TImage(Point(abs_x, abs_y), img)
         img.draw(win)
-        i += image_size[0] + padding_size
-        if i > 900: # move to next row if needed
-            j += padding_size + image_size[1]
-            i = padding_size + image_size[0]/2
+
+
+        selected = tk.StringVar() # initial radio button value
+        selected.set(" ")
+
+        r1 = tk.Radiobutton(win, text='Group A', variable=selected, value='A') # radio buttons
+        r1.place(x=abs_x-85, y=abs_y+130)
+        r2 = tk.Radiobutton(win, text='Group B', variable=selected, value='B')
+        r2.place(x=abs_x+20, y=abs_y+130)
+
+        radio_sel.append(selected)
+
+
+        abs_x += image_size[0] + padding_size # next posistion
+        if abs_x > 900: # move to next row if needed
+            abs_y += padding_size + image_size[1]
+            abs_x = padding_size + image_size[0]/2
+
+    return radio_sel
 
 
 def adjustipoint(t): # adjust inital point onto image
@@ -169,16 +197,15 @@ def getAverage(matrix, row_num, column_num, rxi, ryi, rxf, ryf, image_size):
     return average
 
     
-
 def main():
     # get attributes
-    win, grid, input_box, Submit = window()
+    win, grid, input_box, Save, Load = window()
     tensor = get_tensor()
 
-    # draw images
+    # draw images with radio buttons
     image_size = (250, 250)
     padding_size = 35
-    draw_imgs(image_size, padding_size, win, tensor)
+    radio_sel = draw_imgs(image_size, padding_size, win, tensor)
 
     # initial values
     points = []
@@ -224,20 +251,45 @@ def main():
             averages[sel] = selected_average
             points[sel] = box_points
 
-        if clicked(click, Submit): # save to json file
+        if clicked(click, Save): # save to json file
             out_file = open(input_box.getText() + ".json", "w")
             data = {}
         
             for i in range(len(averages)):
                 data[str("BOX" + str(i))] = {
-                    "Average": averages[int(i)],
-                    "Points (x1,y1,x2,y2)": points[int(i)] 
+                    "Average": averages[i],
+                    "Points (x1,y1,x2,y2)": points[i],
+                    "Type (A, B)": radio_sel[i].get() 
                 }
 
             json.dump(data, out_file)
 
-            print(input_box.getText())
-            print(data)
+        if clicked(click, Load):
+            file = open(input_box.getText() + ".json", "r")
+            data = json.load(file)
+
+            abs_x = padding_size
+            abs_y = padding_size
+
+            for i in range(len(data)):
+                json_average = data[str("BOX" + str(i))]["Average"]
+                json_points = data[str("BOX" + str(i))]["Points (x1,y1,x2,y2)"]
+                json_type = data[str("BOX" + str(i))]["Type (A, B)"]
+
+                print(str("BOX" + str(i)), json_average)
+                
+                box = boxes[i]
+                box.undraw()
+                boxes[i] = Rectangle(Point(json_points[0] + abs_x, json_points[1] + abs_y), Point(json_points[2] + abs_x, json_points[3] + abs_y))
+                boxes[i].setOutline("Blue")
+                boxes[i].draw(win)
+
+                abs_x += image_size[0] + padding_size # next posistion
+                if abs_x > 900: # move to next row if needed
+                    abs_y += padding_size + image_size[1]
+                    abs_y = padding_size + image_size[0]/2
+
+                radio_sel[i].set(json_type)
 
 
 main()
