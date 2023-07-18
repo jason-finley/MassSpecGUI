@@ -116,6 +116,16 @@ def whichimg(t): # determine selected image
     elif 604 < t < 856:
         return 3
     
+    
+def getAverage(matrix, row_num, column_num, rxi, ryi, rxf, ryf, image_size):
+    y_scale, x_scale = image_size[1] / len(matrix), image_size[0] / len(matrix[0]) # determine scale of images
+    y1, y2, x1, x2 = int(ryi / y_scale), int(ryf / y_scale), int(rxi / x_scale), int(rxf / x_scale) # return submatrix indexes
+
+    average = np.average(matrix[y1:y2 + 1, x1:x2 + 1]) # average of submatrix
+
+    return average
+
+    
 def secondclickloop(win, grid, box, column_num, row_num, matrix, image_size, xi, yi, sel):
     click = False # wait for second click loop
     while not clicked(click, grid):
@@ -186,15 +196,6 @@ def adjustfpoint(num, t): # adjust final point onto image
             return 855
         else:
             return t
-
-
-def getAverage(matrix, row_num, column_num, rxi, ryi, rxf, ryf, image_size):
-    y_scale, x_scale = image_size[1] / len(matrix), image_size[0] / len(matrix[0]) # determine scale of images
-    y1, y2, x1, x2 = int(ryi / y_scale), int(ryf / y_scale), int(rxi / x_scale), int(rxf / x_scale) # return submatrix indexes
-
-    average = np.average(matrix[y1:y2 + 1, x1:x2 + 1]) # average of submatrix
-
-    return average
 
     
 def main():
