@@ -27,16 +27,52 @@ def onselect(verts, matrix): # using the lasso tool
 
 
 def save_data(fname, lassos, radio_sel): # save data to json file
-    out_file = open(fname + ".json", "w")
+    file = open(fname + ".json", "w")
     data = {}
 
+
     for i in range(len(lassos)):
+        x_values = []
+        y_values = []
+        if lassos[i].verts is not None:
+            for point in lassos[i].verts:
+                x_values.append(point[0])
+                y_values.append(point[1])
+
+        points = (x_values, y_values)
+
+
         data[str("BOX" + str(i))] = {
             "Average": lassos[i].average,
-            "Type": radio_sel[i].get()
+            "Type": radio_sel[i].get(),
+            "Points": points
         }
 
-    json.dump(data, out_file)
+
+    json.dump(data, file)
+
+
+def display_data(fname, lassos, radio_sel, labels):
+    file = open(fname + ".json", "r")
+    data = json.load(file)
+
+    for i in range(len(lassos)):
+        lassos[i].average = data[str("BOX" + str(i))]["Average"]
+        labels[i].config(text = lassos[i].average)
+
+        lassos[i].type = data[str("BOX" + str(i))]["Type"]
+        radio_sel[i].set(lassos[i].type)
+
+        points = data[str("BOX" + str(i))]["Points"]
+        verts = []
+        for j in range(len(points[0])):
+            verts.append([points[0][j], points[1][j]])
+        lassos[i].verts = verts
+        
+        lassos[i]._selection_artist.set_visible(True)
+        lassos[i]._selection_artist.set_data(points)
+        lassos[i].update()
+        lassos[i]._selection_artist.set_visible(False)
 
 
 def main():
@@ -66,14 +102,16 @@ def main():
         plots.append(subplot)
 
     bar1 = FigureCanvasTkAgg(figure1, root) # first row of plots
-    bar1.get_tk_widget().grid(row=0)
+    bar1.get_tk_widget().grid(row=0, columnspan=2)
 
     bar2 = FigureCanvasTkAgg(figure2, root) # second row of plots
-    bar2.get_tk_widget().grid(row=1)
+    bar2.get_tk_widget().grid(row=1, columnspan=2)
+    
 
-    # create radio buttons for each plot
+    # create radio buttons and average labels for each plot
     radio_sel = []
-    y_coord = -30
+    labels = []
+    y_coord = -40
     for i in range(len(tensor)):
         selected = tk.StringVar() # initial radio button value
         selected.set("null")
@@ -85,23 +123,33 @@ def main():
         r1.place(x=130 + (i%3)*250, y=y_coord)
         r2 = tk.Radiobutton(root, text='Group B', variable=selected, value='B')
         r2.place(x=220 + (i%3)*250, y=y_coord)
+        label = tk.Label(root, text = "None")
+        label.place(x=175 + (i%3)*250, y=y_coord+30)
 
-        radio_sel.append(selected) # add button selections to list
+        radio_sel.append(selected) # add button selection and labels to list
+        labels.append(label)
 
     # create lasso tools for each plot
     lassos = []
     for i in range(len(plots)):
-        lassos.append(LassoSelector(plots[i], onselect, tensor[i]))
+        lassos.append(LassoSelector(plots[i], onselect, tensor[i], labels[i]))
+
 
     # file name entry box
     fname_var=tk.StringVar()
     fname_entry = tk.Entry(root, textvariable = fname_var, font=('calibre',18,'normal'), bg="gray")
-    fname_entry.place(x=328, y=610)
+    fname_entry.place(x=328, y=620)
 
-    # create save button
-    btn = tk.Button(root, text = 'Save', command = lambda: save_data(fname_var.get(), lassos, radio_sel))
-    btn.grid(row=2, pady=60, ipadx=80, ipady=15) 
-    
+
+   
+    # create Save button and Display button
+    btn1 = tk.Button(root, text = 'Save', command = lambda: save_data(fname_var.get(), lassos, radio_sel))
+    btn1.grid(row=2, column=0, pady=60, ipadx=80, ipady=15)
+
+    btn2 = tk.Button(root, text = 'Display', command = lambda: display_data(fname_var.get(), lassos, radio_sel, labels))
+    btn2.grid(row=2, column=1, pady=60, ipadx=80, ipady=15)
+
+
     root.mainloop()
 
 main()
