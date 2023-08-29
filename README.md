@@ -1,5 +1,5 @@
 # MassSpecGUI
-widgets.py needed for lassosel.py,
+customlasso.py needed for lassosel.py,
 
 graphics.py needed for rectsel.py
 
