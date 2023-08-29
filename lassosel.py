@@ -1,16 +1,22 @@
 import tkinter as tk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.widgets import LassoSelector
+from customlasso import myLassoSelector
 from matplotlib import path
 import numpy as np
 import json
+import os
 
 
 def getaverage(matrix, indices): # determine average
     lin = np.arange(matrix.size)
     flat_matrix = matrix.flatten()
-    average = np.average(flat_matrix[lin[indices]])
+    
+    average = None
+    if len(lin[indices]) != 0:
+        average = np.average(flat_matrix[lin[indices]])
+    else:
+        average = "None"
     
     return average
 
@@ -30,7 +36,6 @@ def save_data(fname, lassos, radio_sel): # save data to json file
     file = open(fname + ".json", "w")
     data = {}
 
-
     for i in range(len(lassos)):
         x_values = []
         y_values = []
@@ -41,13 +46,11 @@ def save_data(fname, lassos, radio_sel): # save data to json file
 
         points = (x_values, y_values)
 
-
         data[str("BOX" + str(i))] = {
             "Average": lassos[i].average,
             "Type": radio_sel[i].get(),
             "Points": points
         }
-
 
     json.dump(data, file)
 
@@ -81,7 +84,19 @@ def main():
     root.geometry('900x750')
     root.configure(bg='white')
 
-    tensor = np.random.randint(0, 100, size=(6, 100, 100)) # create matrices
+    #tensor = np.random.randint(0, 100, size=(6, 100, 100)) # create matrices
+    directory = "/scratch/gilbreth/jpfinley/numpy_read/read_raw_data/Laskin data/1_1013 WT F2/pixelsFA_d8AA_norm.npy"
+    tensor = np.load(directory)
+
+    shape = tensor.shape
+    pads = [6 - shape[0], 100 - shape[1], 100 - shape[2]]
+    
+    for i in range(len(pads)):
+        if pads[i] < 0:
+            pads[i] = 0
+
+    tensor = np.pad(tensor, pad_width=((0, pads[0]), (0, pads[1]), (0, pads[2])))
+    tensor = tensor[0:6,0:100,0:100]
 
     figure1 = plt.Figure(figsize=(9, 3), dpi=100) # size of plots
     figure2 = plt.Figure(figsize=(9, 3), dpi=100)
@@ -132,14 +147,13 @@ def main():
     # create lasso tools for each plot
     lassos = []
     for i in range(len(plots)):
-        lassos.append(LassoSelector(plots[i], onselect, tensor[i], labels[i]))
+        lassos.append(myLassoSelector(plots[i], onselect, matrix = tensor[i], label = labels[i]))
 
 
     # file name entry box
     fname_var=tk.StringVar()
     fname_entry = tk.Entry(root, textvariable = fname_var, font=('calibre',18,'normal'), bg="gray")
     fname_entry.place(x=328, y=620)
-
 
    
     # create Save button and Display button
