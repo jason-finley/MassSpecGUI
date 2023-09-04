@@ -78,31 +78,16 @@ def display_data(fname, lassos, radio_sel, labels):
         lassos[i]._selection_artist.set_visible(False)
 
 
-def main():
-    root = tk.Tk() # create window
+def display_main(master, tensor):
+    root = tk.Toplevel(master) # create window
     root.title("Submatrix Average Calculator")
     root.geometry('900x750')
     root.configure(bg='white')
 
-    #tensor = np.random.randint(0, 100, size=(6, 100, 100)) # create matrices
-    directory = "/scratch/gilbreth/jpfinley/numpy_read/read_raw_data/Laskin data/1_1013 WT F2/pixelsFA_d8AA_norm.npy"
-    tensor = np.load(directory)
-
-    shape = tensor.shape
-    pads = [6 - shape[0], 100 - shape[1], 100 - shape[2]]
-    
-    for i in range(len(pads)):
-        if pads[i] < 0:
-            pads[i] = 0
-
-    tensor = np.pad(tensor, pad_width=((0, pads[0]), (0, pads[1]), (0, pads[2])))
-    tensor = tensor[0:6,0:100,0:100]
-
     figure1 = plt.Figure(figsize=(9, 3), dpi=100) # size of plots
     figure2 = plt.Figure(figsize=(9, 3), dpi=100)
 
-
-    i = 0
+    i = 0 # add matplot figures to subplots and add subplots to plots list
     plots = []
     for matrix in tensor:
         i += 1
@@ -164,6 +149,62 @@ def main():
     btn2.grid(row=2, column=1, pady=60, ipadx=80, ipady=15)
 
 
-    root.mainloop()
+def adjust_tensor(directory, entries):
+    loaded_tensor = np.load(directory)
+    shape = loaded_tensor.shape
+
+    coords = []
+    for entry in entries:
+        try:
+            coords.append(int(entry.get()))
+        except:
+            coords.append(0)
+    
+    for i in range(len(coords)):
+        if coords[i] < 0:
+            coords[i] = 0
+        if coords[i] > shape[int(i/2)]:
+            coords[i] = shape[int(i/2)]
+    
+    print("coords: ", coords)
+
+    displayed_tensor = loaded_tensor[coords[0]:coords[1], coords[2]:coords[3], coords[4]:coords[5]]
+    shape = displayed_tensor.shape
+    
+    pads = [0, 0, 0]
+    if shape[0] < 6:
+        pads[0] = 6 - shape[0]
+    if shape[1] < 100:
+        pads[1] = 100 - shape[1]
+    if shape[2] < 100:
+        pads[2] = 100 - shape[2]
+
+    pads = [6 - shape[0], 100 - shape[1], 100 - shape[2]]
+    displayed_tensor = np.pad(displayed_tensor, pad_width=((0, pads[0]), (0, pads[1]), (0, pads[2])))
+
+    return displayed_tensor
+
+
+def main():
+    directory = "/scratch/gilbreth/jpfinley/numpy_read/read_raw_data/Laskin data/1_1013 WT F2/pixelsFA_d8AA_norm.npy"
+
+    # create main window
+    master = tk.Tk()
+    master.title("Submatrix Average Calculator")
+    master.geometry('570x350')
+    master.configure(bg='white')
+
+    entries = []
+    
+    for i in range(6):
+        entries.append(tk.Entry(master, font=('calibre', 18, 'normal'), bg="gray"))
+        entries[i].grid(row=int(i/2), column=i%2, padx=10, pady=20, ipady=5)
+
+    # create tensor display window with adjusted tensor
+    btnmain = tk.Button(master, text = 'Load', command = lambda: display_main(master, adjust_tensor(directory, entries)))
+    btnmain.grid(row=3, column=0, pady=20, ipadx=80, ipady=15)
+
+    master.mainloop()
+
 
 main()
