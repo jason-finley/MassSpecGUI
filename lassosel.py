@@ -11,25 +11,34 @@ import os
 def getaverage(matrix, indices): # determine average
     lin = np.arange(matrix.size)
     flat_matrix = matrix.flatten()
-    
-    average = None
+
+    average = "None"
     if len(lin[indices]) != 0:
         average = np.average(flat_matrix[lin[indices]])
-    else:
-        average = "None"
-    
+
     return average
 
 
-def onselect(verts, matrix): # using the lasso tool
-    pix = np.arange(100)
-    xv, yv = np.meshgrid(pix,pix)
-    pix = np.vstack( (xv.flatten(), yv.flatten()) ).T
+def onselect(verts, tensor): # using the lasso tool
+    shape = tensor.shape
+    pix_x = np.arange(shape[2])
+    pix_y = np.arange(shape[1])
+    xv, yv = np.meshgrid(pix_x, pix_y)
+    pix = np.vstack((xv.flatten(), yv.flatten())).T
 
     p = path.Path(verts)
-    indices = p.contains_points(pix, radius=1)
+    indices = p.contains_points(pix, radius=1) # all false
 
-    return getaverage(matrix, indices)
+    averages = []
+    for i in range(len(tensor)):
+        averages.append(getaverage(tensor[i], indices))
+
+    if averages[0] == "None":
+        total_average = "None"
+    else:
+        total_average = sum(averages) / len(averages)
+
+    return total_average, averages
 
 
 def save_data(fname, lassos, radio_sel): # save data to json file
@@ -47,7 +56,8 @@ def save_data(fname, lassos, radio_sel): # save data to json file
         points = (x_values, y_values)
 
         data[str("BOX" + str(i))] = {
-            "Average": lassos[i].average,
+            "Total Average": lassos[i].total_average,
+            "Averages": lassos[i].averages,
             "Type": radio_sel[i].get(),
             "Points": points
         }
@@ -60,8 +70,10 @@ def display_data(fname, lassos, radio_sel, labels):
     data = json.load(file)
 
     for i in range(len(lassos)):
-        lassos[i].average = data[str("BOX" + str(i))]["Average"]
-        labels[i].config(text = lassos[i].average)
+        lassos[i].total_average = data[str("BOX" + str(i))]["Total Average"]
+        labels[i].config(text = lassos[i].total_average)
+
+        lassos[i].averages = data[str("BOX" + str(i))]["Averages"]
 
         lassos[i].type = data[str("BOX" + str(i))]["Type"]
         radio_sel[i].set(lassos[i].type)
@@ -78,7 +90,8 @@ def display_data(fname, lassos, radio_sel, labels):
         lassos[i]._selection_artist.set_visible(False)
 
 
-def display_main(master, tensor):
+def display_main(master, npy_files, num_slice):
+    print("DISPLAYING SLICE NUMBER:", num_slice)
     root = tk.Toplevel(master) # create window
     root.title("Submatrix Average Calculator")
     root.geometry('900x750')
@@ -87,16 +100,17 @@ def display_main(master, tensor):
     figure1 = plt.Figure(figsize=(9, 3), dpi=100) # size of plots
     figure2 = plt.Figure(figsize=(9, 3), dpi=100)
 
-    i = 0 # add matplot figures to subplots and add subplots to plots list
+    m = 0 # add matplot figures to subplots and add subplots to plots list
     plots = []
-    for matrix in tensor:
-        i += 1
-        if i <= 3:
-            subplot = figure1.add_subplot(130 + i)
+    for i in range(len(npy_files)):
+        m += 1
+        if m <= 3:
+            subplot = figure1.add_subplot(130 + m)
         else:
-            subplot = figure2.add_subplot(130 + i - 3)
+            subplot = figure2.add_subplot(130 + m - 3)
 
-        subplot.matshow(matrix, cmap='gray', origin='lower')
+        subplot.matshow(npy_files[i][num_slice], cmap='gray', origin='lower')
+        subplot.set_aspect(30)
         subplot.axis('off')
         subplot.plot()
         plots.append(subplot)
@@ -112,7 +126,7 @@ def display_main(master, tensor):
     radio_sel = []
     labels = []
     y_coord = -40
-    for i in range(len(tensor)):
+    for i in range(len(npy_files)):
         selected = tk.StringVar() # initial radio button value
         selected.set("null")
         
@@ -132,7 +146,7 @@ def display_main(master, tensor):
     # create lasso tools for each plot
     lassos = []
     for i in range(len(plots)):
-        lassos.append(myLassoSelector(plots[i], onselect, matrix = tensor[i], label = labels[i]))
+        lassos.append(myLassoSelector(plots[i], onselect, tensor = npy_files[i], label = labels[i]))
 
 
     # file name entry box
@@ -149,60 +163,47 @@ def display_main(master, tensor):
     btn2.grid(row=2, column=1, pady=60, ipadx=80, ipady=15)
 
 
-def adjust_tensor(directory, entries):
-    loaded_tensor = np.load(directory)
-    shape = loaded_tensor.shape
+def adjust_tensor(entry):
+    if entry == "":
+        entry = 0
 
-    coords = []
-    for entry in entries:
-        try:
-            coords.append(int(entry.get()))
-        except:
-            coords.append(0)
-    
-    for i in range(len(coords)):
-        if coords[i] < 0:
-            coords[i] = 0
-        if coords[i] > shape[int(i/2)]:
-            coords[i] = shape[int(i/2)]
-    
-    print("coords: ", coords)
+    # displayed_tensor = np.pad(displayed_tensor, pad_width=((0, pads[0]), (0, pads[1]), (0, pads[2])))
 
-    displayed_tensor = loaded_tensor[coords[0]:coords[1], coords[2]:coords[3], coords[4]:coords[5]]
-    shape = displayed_tensor.shape
-    
-    pads = [0, 0, 0]
-    if shape[0] < 6:
-        pads[0] = 6 - shape[0]
-    if shape[1] < 100:
-        pads[1] = 100 - shape[1]
-    if shape[2] < 100:
-        pads[2] = 100 - shape[2]
-
-    pads = [6 - shape[0], 100 - shape[1], 100 - shape[2]]
-    displayed_tensor = np.pad(displayed_tensor, pad_width=((0, pads[0]), (0, pads[1]), (0, pads[2])))
-
-    return displayed_tensor
+    return int(entry)
 
 
 def main():
-    directory = "/scratch/gilbreth/jpfinley/numpy_read/read_raw_data/Laskin data/1_1013 WT F2/pixelsFA_d8AA_norm.npy"
+    directory = "/scratch/gilbreth/jpfinley/numpy_read/read_raw_data/Laskin data/1_1013 WT F2/"
+
+    file_names = [
+        "pixelsFA_d8AA_norm.npy",
+        "pixelsPA_LPA_norm.npy",
+        "pixelsPE_LPE_norm.npy",
+        "pixelsPG_LPG_norm.npy",
+        "pixelsPI_LPI_norm.npy",
+        "pixelsPS_LPS_norm.npy"
+    ]
+
+    npy_files = []
+
+    for file_name in file_names:
+        npy_file = np.load(directory + file_name)
+        npy_files.append(npy_file)
+        shape = npy_file.shape
+        print("File", file_name, "contains", shape[0], "slices with pixel dimensions:", shape[2], "by", shape[1])
 
     # create main window
     master = tk.Tk()
     master.title("Submatrix Average Calculator")
     master.geometry('570x350')
     master.configure(bg='white')
-
-    entries = []
     
-    for i in range(6):
-        entries.append(tk.Entry(master, font=('calibre', 18, 'normal'), bg="gray"))
-        entries[i].grid(row=int(i/2), column=i%2, padx=10, pady=20, ipady=5)
+    entry = tk.Entry(master, font=('calibre', 18, 'normal'), bg="gray")
+    entry.grid(row=1, column=1, padx=10, pady=20, ipady=5)
 
     # create tensor display window with adjusted tensor
-    btnmain = tk.Button(master, text = 'Load', command = lambda: display_main(master, adjust_tensor(directory, entries)))
-    btnmain.grid(row=3, column=0, pady=20, ipadx=80, ipady=15)
+    btnmain = tk.Button(master, text = 'Load', command = lambda: display_main(master, npy_files, adjust_tensor(entry.get())))
+    btnmain.grid(row=3, column=1, pady=20, ipadx=80, ipady=15)
 
     master.mainloop()
 
