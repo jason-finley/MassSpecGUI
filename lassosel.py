@@ -173,24 +173,35 @@ def adjust_tensor(entry):
 
 
 def main():
-    directory = "/scratch/gilbreth/jpfinley/numpy_read/read_raw_data/Laskin data/1_1013 WT F2/"
+    directory = "/scratch/gilbreth/jpfinley/numpy_read/read_raw_data/Laskin_data/"
 
-    file_names = [
-        "pixelsFA_d8AA_norm.npy",
-        "pixelsPA_LPA_norm.npy",
-        "pixelsPE_LPE_norm.npy",
-        "pixelsPG_LPG_norm.npy",
-        "pixelsPI_LPI_norm.npy",
-        "pixelsPS_LPS_norm.npy"
-    ]
+    try:
+        os.path.isfile(directory)
+        folder_names = os.listdir(directory)
+    except:
+        print("Folder: {directory} does not exist.")
 
     npy_files = []
 
-    for file_name in file_names:
-        npy_file = np.load(directory + file_name)
-        npy_files.append(npy_file)
-        shape = npy_file.shape
-        print("File", file_name, "contains", shape[0], "slices with pixel dimensions:", shape[2], "by", shape[1])
+    for folder_name in folder_names:
+        file_names = os.listdir(directory + folder_name)
+        print(f"Accessing folder: {folder_name}.")
+
+        npy_files_of_folder = []
+
+        for file_name in file_names:
+            print(file_name)
+            if file_name != 'pixelsCeramides.npy' and file_name != 'pixelsPE_LPE_norm.npy':
+                npy_file = np.load(directory + folder_name + "/" + file_name)
+                npy_files_of_folder.append(npy_file)
+                shape = npy_file.shape
+                print("File", file_name, "contains", shape[0], "slices with pixel dimensions:", shape[2], "by", shape[1])
+
+        npy_files.append(np.concatenate(npy_files_of_folder))
+
+    for npyfile in npy_files:
+        print(npyfile.shape)
+
 
     # create main window
     master = tk.Tk()
