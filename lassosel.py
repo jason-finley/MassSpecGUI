@@ -7,8 +7,8 @@ import numpy as np
 import json
 import os
 
-
-def getaverage(matrix, indices): # determine average
+# Fuction to calculate the average of selected region in a matrix
+def getaverage(matrix, indices):
     lin = np.arange(matrix.size)
     flat_matrix = matrix.flatten()
 
@@ -18,8 +18,8 @@ def getaverage(matrix, indices): # determine average
 
     return average
 
-
-def onselect(verts, tensor): # using the lasso tool
+# Callback function for the lasso tool, calculating averages within the selected region
+def onselect(verts, tensor):
     shape = tensor.shape
     pix_x = np.arange(shape[2])
     pix_y = np.arange(shape[1])
@@ -27,7 +27,7 @@ def onselect(verts, tensor): # using the lasso tool
     pix = np.vstack((xv.flatten(), yv.flatten())).T
 
     p = path.Path(verts)
-    indices = p.contains_points(pix, radius=1) # all false
+    indices = p.contains_points(pix, radius=1)
 
     averages = []
     for i in range(len(tensor)):
@@ -40,8 +40,8 @@ def onselect(verts, tensor): # using the lasso tool
 
     return total_average, averages
 
-
-def save_data(fname, lassos, radio_sel): # save data to json file
+# Function to save data to a JSON file
+def save_data(fname, lassos, radio_sel):
     file = open(fname + ".json", "w")
     data = {}
 
@@ -64,7 +64,7 @@ def save_data(fname, lassos, radio_sel): # save data to json file
 
     json.dump(data, file)
 
-
+# Function to display data from a JSON file
 def display_data(fname, lassos, radio_sel, labels):
     file = open(fname + ".json", "r")
     data = json.load(file)
@@ -89,15 +89,15 @@ def display_data(fname, lassos, radio_sel, labels):
         lassos[i].update()
         lassos[i]._selection_artist.set_visible(False)
 
-
+# Function to display the main window
 def display_main(master, npy_files, num_slice):
     print("DISPLAYING SLICE NUMBER:", num_slice)
-    root = tk.Toplevel(master) # create window
+    root = tk.Toplevel(master)
     root.title("Submatrix Average Calculator")
     root.geometry('900x750')
     root.configure(bg='white')
-
-    figure1 = plt.Figure(figsize=(9, 3), dpi=100) # size of plots
+    
+    figure1 = plt.Figure(figsize=(9, 3), dpi=100)
     figure2 = plt.Figure(figsize=(9, 3), dpi=100)
 
     m = 0 # add matplot figures to subplots and add subplots to plots list
@@ -167,11 +167,9 @@ def adjust_tensor(entry):
     if entry == "":
         entry = 0
 
-    # displayed_tensor = np.pad(displayed_tensor, pad_width=((0, pads[0]), (0, pads[1]), (0, pads[2])))
-
     return int(entry)
 
-
+# Main function to initialize and run the program
 def main():
     directory = "/scratch/gilbreth/jpfinley/numpy_read/read_raw_data/Laskin_data/"
 
@@ -218,5 +216,5 @@ def main():
 
     master.mainloop()
 
-
+# Run the main function to start the program
 main()
